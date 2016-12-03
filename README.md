@@ -21,7 +21,7 @@ See `sample-guixsh` for an example.
 
 ## unguixsh
 
-The _unguixsh_ script does the inverse of `guixsh`: it opens a shell in the
+The _unguixsh_ script does the inverse of `guixsh`.  It opens a shell in the
 host environment from a guixsh.  The spawned shell has its PATH and environment
-'reset' to host settings.  (Note: just a coarse hack.)
+'reset' to host settings.
 
