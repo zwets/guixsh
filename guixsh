@@ -1,0 +1,182 @@
+#!/bin/sh
+#
+#  guixsh - Run a shell or command inside a Guix profile
+#  Copyright (c)  2016 Marco van Zwetselaar <io@zwets.it>
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#  Part of https://github.com/zwets/guixsh
+
+set -e
+
+RC_NAME=".guixshrc"
+HOME_DIR="$HOME"
+
+emit () {
+    [ -z "$VERBOSE" ] || echo "$(basename "$0"): $*" >&2 
+}
+
+err_exit () {
+    echo "ERROR: $(basename "$0"): $*" >&2
+    exit 1
+}
+
+usage_exit () {
+    echo "
+  Usage: $(basename "$0") [OPTIONS] [--] [COMMAND]
+
+  Run a shell or command in a Guix profile.
+
+  OPTIONS
+    -d|--dir=DIR        Make DIR the home of the spawned shell.
+    -c|--create         Create a new Guix profile underneath DIR.
+    -m|--manifest=FILE  Use FILE to define the profile.
+    -h|--help           Present this help text.
+    -v|--verbose        Emit verbose output to stderr.
+
+  This command starts a bash shell with DIR/.guix-profile as its Guix
+  profile.  The default for DIR is \$HOME.  If COMMAND is present then
+  it is run in the shell, else the shell is interactive.
+
+  The environment for the spawned shell is constructed as follows:
+  1. GUIX_PROFILE is set to \$DIR/.guix-profile
+  2. \$GUIX_PROFILE/etc/profile is sourced in an empty environment.
+  3. \$DIR/bin is prepended to PATH if that directory exists.
+  4. \$DIR/$RC_NAME is sourced if that file exists.
+  5. \$PS1 is decorated if the spawned shell is interactive.
+
+  The directory \$DIR/.guix-profile must be present, or the option
+  -c|--create must be specified.  The option -m|--manifest may be used
+  both when creating a new profile and when using an existing profile.
+  It creates a new generation populated according to the manifest.
+  The manifest must install bash (or this command would be pointless).
+
+  When option -c|--create is present then no \$DIR/.guix-profile must
+  exist.  \$DIR is created if it does not exist.  \$DIR/bin is created
+  if it does not exist.  The script unguixsh is added to \$DIR/bin.
+  A profile created without manifest will have guix and bash installed.
+
+  Note that ~/.bashrc is not sourced by the spawned shell.  If desired
+  this can be done from \$DIR/${RC_NAME}.  A sample ${RCNAME} which
+  does this is provided in the guixsh repo.  Note that .bashrc should
+  be sourced by interactive shells only.
+
+  Return value is the return value of the executed command.
+" >&2
+
+    exit ${1:-1}
+}
+
+# Functions
+
+
+# Parse command line arguments
+
+while [ $# -ne 0 -a "$(expr "$1" : '\(.\).*')" = "-" ]; do
+	case $1 in
+        --dir=*)
+                HOME_DIR="${1#--dir=}"
+                ;;
+        -d|--dir)
+                shift
+                HOME_DIR="$1"
+                ;;
+	-c|--create)
+		CREATE=1
+		;;
+        --manifest=*)
+                MANIFEST="${1#--manifest=}"
+                ;;
+        -m|--manifest)
+                shift
+                MANIFEST="$1"
+                ;;
+	-h|--help)
+		usage_exit 0
+		;;
+	-v|--verbose)
+		VERBOSE=1
+		;;
+	--)
+                shift
+		break
+		;;
+        -*)
+                usage_exit
+                ;;
+	esac
+	shift
+done
+
+# Making paths absolute
+
+HOME_DIR="$(realpath "$HOME_DIR")"
+TARGET_PROFILE="$HOME_DIR/.guix-profile"
+
+# Consistency checks and setting up directories
+
+if [ -n "$CREATE" ]; then
+    [ ! -e "$TARGET_PROFILE" ] || err_exit "refusing to create: file or directory exists: $TARGET_PROFILE"
+    if [ ! -d "$HOME_DIR" ]; then
+        [ ! -e "$HOME_DIR" ] || err_exit "cannot create directory: file exists: $HOME_DIR"
+        emit "creating directory: $HOME_DIR"
+        mkdir -p "$HOME_DIR"
+    fi
+    emit "creating directory: $HOME_DIR/bin"
+    mkdir -p "$HOME_DIR/bin"
+    emit "@@@ TODO @@@: add unguixsh to $HOME_DIR/bin"
+else # not creating, check for presence of profile
+    [ -d "$HOME_DIR" ] || err_exit "no such directory: $HOME_DIR"
+    [ -e "$TARGET_PROFILE" ] || err_exit "no such file: $TARGET_PROFILE"
+fi
+
+emit "operating from GUIX_PROFILE: $GUIX_PROFILE"
+emit "target GUIX_PROFILE: $TARGET_PROFILE"
+
+# Install from manifest or, when creating, install just guix and bash
+
+if [ -n "$MANIFEST" ]; then
+    [ -f "$MANIFEST" ] || err_exit "no such file: $MANIFEST"
+    emit "running guix manifest install in profile: $TARGET_PROFILE"
+    guix package -p "$TARGET_PROFILE" -m "$MANIFEST" || 
+        err_exit "guix failed to install manifest in profile: $TARGET_PROFILE"
+else # no manifest, install guix and bash when creating new
+    [ -z "$CREATE" ] || guix package -p "$TARGET_PROFILE" -i guix bash || 
+        err_exit "guix failed to install guix in created profile: $TARGET_PROFILE"
+fi
+
+# Prepare for environment setup
+
+TARGET_BASH="$TARGET_PROFILE/bin/bash"
+[ -x "$TARGET_BASH" ] || err_exit "no bash found: $TARGET_BASH"
+
+TMP_RCFILE="/tmp/$(basename "$0").$$"
+grep '^export ' "$TARGET_PROFILE/etc/profile" | sed -e 's/^export  *\([^=]*\).*/unset \1/' > "$TMP_RCFILE"
+echo "export GUIX_PROFILE=\"$TARGET_PROFILE\"" >> "$TMP_RCFILE"
+cat "$TARGET_PROFILE/etc/profile" >> "$TMP_RCFILE"
+[ ! -d "$HOME_DIR/bin" ] || echo "PATH=\"$HOME_DIR/bin:\$PATH\"" >> "$TMP_RCFILE"
+[ ! -f "$HOME_DIR/$RC_NAME" ] || cat "$HOME_DIR/$RC_NAME" >> "$TMP_RCFILE"
+
+# Determine if shell will be interactive as mechanism to pass environment differs
+
+if [ $# -eq 0 ]; then
+    # Interactive bash.  Pass rc-file via argument.
+    exec "$TARGET_BASH" --init-file "$TMP_RCFILE"
+else
+    # Non-interactive.  RC-file is passed via environment variable BASH_ENV.
+    export BASH_ENV="$TMP_RCFILE"
+    exec "$TARGET_BASH" -c "$*"
+fi
+
+# vim: sts=4:sw=4:et:ai:si

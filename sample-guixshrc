@@ -1,0 +1,54 @@
+#  sample .guixshrc - sourced by guixsh
+#  Copyright (c)  2016 Marco van Zwetselaar <io@zwets.it>
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#  Part of https://github.com/zwets/guixsh
+
+## Set GUIX_LOCPATH - if not done in ~/.profile, do it here
+#GUIX_LOCPATH="$HOME/.locale"
+
+## COMMENTED OUT better to do this for specific applications
+## Force host software to load from Guix first
+#
+#export LD_LIBRARY_PATH="$GUIX_PROFILE/lib"
+#export PKG_CONFIG_PATH="$GUIX_PROFILE/lib/pkgconfig"
+
+# Source .bashrc if we are interactive, as we 'take its place'
+
+if [ -n "$BASH_VERSION" -a -z "${-%%*i*}" ]; then
+
+    # Source the host .bashrc
+
+    if [ -f "$HOME/.bashrc" ]; then
+        . "$HOME/.bashrc"
+    fi
+
+    # Source the bash completions contributed by Guix packages
+
+    d="$GUIX_PROFILE/etc/bash_completion.d"
+    if [ -d "$d" ]; then
+      for f in $(LC_ALL=C command ls "$d"); do
+        [ ! -f "$d/$f" ] || . "$d/$f"
+      done
+      unset -v d f
+    fi
+
+    # Indicate the environment by a green prefix to the prompt.
+
+    PS1="\[\033[01;32m\][GUIX] $PS1"
+
+fi
+
+# vim: sts=4:sw=4:ai:si:et

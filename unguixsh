@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+#  unguixsh - Run a shell outside of Guix profile
+#  Copyright (c)  2016 Marco van Zwetselaar <io@zwets.it>
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#  Part of https://github.com/zwets/guixsh
+
+# Note: this is just a quick hack to make this work.
+# The proper way would be to analyse which environment and PATH entries
+# should be unset.  But then we could as well just spawn a new login shell.
+
+unset LOCPATH
+unset GST_PLUGIN_SYSTEM_PATH
+unset CPATH
+unset LIBRARY_PATH
+unset XDG_DATA_DIRS
+unset GIO_EXTRA_MODULES
+unset GUIX_LOCPATH
+unset GUILE_LOAD_PATH
+unset GUILE_LOAD_COMPILED_PATH
+unset INFOPATH
+unset R_LIBS_SITE
+unset GUIX_PROFILE
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
+
+if [ $# -eq 0 ]; then
+    exec "/bin/bash" -l
+else
+    exec "/bin/bash" -c "$*"
+fi
+
+# vim: sts=4:sw=4:et:ai:si
+
