@@ -25,6 +25,15 @@
 #export LD_LIBRARY_PATH="$GUIX_PROFILE/lib"
 #export PKG_CONFIG_PATH="$GUIX_PROFILE/lib/pkgconfig"
 
+# SSL applications need these and they are not set in guix profile.
+# If profile has nss-certs, we use those, else use system certs.
+#
+export SSL_CERT_DIR="$GUIX_PROFILE/etc/ssl/certs"
+[ -d "$SSL_CERT_DIR" ] || export SSL_CERT_DIR="/etc/ssl/certs"
+export SSL_CERT_FILE="$SSL_CERT_DIR/ca-certificates.crt"
+export GIT_SSL_CAINFO="$SSL_CERT_FILE"
+export CURL_CA_BUNDLE="$SSL_CERT_FILE"
+
 # Source .bashrc if we are interactive, as we 'take its place'
 
 if [ -n "$BASH_VERSION" -a -z "${-%%*i*}" ]; then
@@ -45,9 +54,10 @@ if [ -n "$BASH_VERSION" -a -z "${-%%*i*}" ]; then
       unset -v d f
     fi
 
-    # Indicate the environment by a green prefix to the prompt.
+    # Indicate the environment by tagging the prompt.
 
-    PS1="\[\033[01;32m\][GUIX] $PS1"
+    TAG="\[\033[01;32m\][GUIX]"
+    [ "$PROMPT_COMMAND" = "_lp_set_prompt" ] && liquidprompt_tag "$TAG" || PS1="$TAG $PS1"
 
 fi
 

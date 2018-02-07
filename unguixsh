@@ -35,13 +35,10 @@ unset INFOPATH
 unset R_LIBS_SITE
 unset GUIX_PROFILE
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
-
-if [ $# -eq 0 ]; then
-    exec "/bin/bash" -l
-else
-    exec "/bin/bash" -c "$*"
-fi
+unset SSL_CERT_DIR
+unset SSL_CERT_FILE
+unset GIT_SSL_CAINFO
+unset CURL_CA_BUNDLE
 
 # vim: sts=4:sw=4:et:ai:si
 
