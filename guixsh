@@ -65,7 +65,8 @@ usage_exit () {
   When option -c|--create is present then no \$DIR/.guix-profile must
   exist.  \$DIR is created if it does not exist.  \$DIR/bin is created
   if it does not exist.  The script unguixsh is added to \$DIR/bin.
-  A profile created without manifest will have guix and bash installed.
+  If no manifest is specified, the created profile has guix and bash
+  installed.
 
   Note that ~/.bashrc is not sourced by the spawned shell.  If desired
   this can be done from \$DIR/${RC_NAME}.  A sample ${RCNAME} which
@@ -84,39 +85,39 @@ usage_exit () {
 # Parse command line arguments
 
 while [ $# -ne 0 -a "$(expr "$1" : '\(.\).*')" = "-" ]; do
-	case $1 in
-        --dir=*)
-                HOME_DIR="${1#--dir=}"
-                ;;
-        -d|--dir)
-                shift
-                HOME_DIR="$1"
-                ;;
-	-c|--create)
-		CREATE=1
-		;;
-        --manifest=*)
-                MANIFEST="${1#--manifest=}"
-                ;;
-        -m|--manifest)
-                shift
-                MANIFEST="$1"
-                ;;
-	-h|--help)
-		usage_exit 0
-		;;
-	-v|--verbose)
-		VERBOSE=1
-		;;
-	--)
-                shift
-		break
-		;;
-        -*)
-                usage_exit
-                ;;
-	esac
-	shift
+    case $1 in
+    --dir=*)
+        HOME_DIR="${1#--dir=}"
+        ;;
+    -d|--dir)
+        shift
+        HOME_DIR="$1"
+        ;;
+    -c|--create)
+        CREATE=1
+        ;;
+    --manifest=*)
+        MANIFEST="${1#--manifest=}"
+        ;;
+    -m|--manifest)
+        shift
+        MANIFEST="$1"
+        ;;
+    -h|--help)
+        usage_exit 0
+        ;;
+    -v|--verbose)
+        VERBOSE=1
+        ;;
+    --)
+        shift
+        break
+        ;;
+    -*)
+        usage_exit
+        ;;
+    esac
+    shift
 done
 
 # Making paths absolute
