@@ -17,7 +17,7 @@
 #  Part of https://github.com/zwets/guixsh
 
 ## Set GUIX_LOCPATH - if not done in ~/.profile, do it here
-#GUIX_LOCPATH="$HOME/.locale"
+#GUIX_LOCPATH="$GUIX_PROFILE/lib/locale"
 
 ## COMMENTED OUT better to do this for specific applications
 ## Force host software to load from Guix first
@@ -40,24 +40,25 @@ if [ -n "$BASH_VERSION" -a -z "${-%%*i*}" ]; then
 
     # Source the host .bashrc
 
-    if [ -f "$HOME/.bashrc" ]; then
-        . "$HOME/.bashrc"
+    if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
     fi
 
     # Source the bash completions contributed by Guix packages
 
     d="$GUIX_PROFILE/etc/bash_completion.d"
     if [ -d "$d" ]; then
-      for f in $(LC_ALL=C command ls "$d"); do
-        [ ! -f "$d/$f" ] || . "$d/$f"
+      for f in "$d"/*; do
+        [ ! -f "$f" ] || . "$f"
       done
       unset -v d f
     fi
 
     # Indicate the environment by tagging the prompt.
 
-    TAG="\[\033[01;32m\][GUIX]"
-    [ "$PROMPT_COMMAND" = "_lp_set_prompt" ] && liquidprompt_tag "$TAG" || PS1="$TAG $PS1"
+    t="\[\033[01;32m\][GUIX]"
+    [ "$PROMPT_COMMAND" = "_lp_set_prompt" ] && liquidprompt_tag "$t" || PS1="$t $PS1"
+    unset -v t
 
 fi
 

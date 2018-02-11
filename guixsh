@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 #
-#  guixsh - Run a shell or command inside a Guix profile
+#  guixsh - Run a bash shell or command inside a Guix profile
 #  Copyright (c)  2016 Marco van Zwetselaar <io@zwets.it>
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -41,6 +41,7 @@ usage_exit () {
   OPTIONS
     -d, --dir=DIR        Make DIR the home of the spawned shell
     -c, --create         Create a new Guix profile underneath DIR
+    -e, --env            Retain current environment in the spawnee
     -m, --manifest=FILE  Use FILE to define the profile
     -h, --help           Present this help text
     -v, --verbose        Emit verbose output to stderr
@@ -50,8 +51,9 @@ usage_exit () {
   it is run in the shell, else the shell is interactive.
 
   The environment for the spawned shell is constructed as follows:
-  1. GUIX_PROFILE is set to \$DIR/.guix-profile
-  2. \$GUIX_PROFILE/etc/profile is sourced in an empty environment.
+  1. GUIX_PROFILE is set to \$DIR/.guix-profile.
+  2. \$GUIX_PROFILE/etc/profile is sourced in an empty environment,
+     or in the current environment if option -e, --env is given.
   3. \$DIR/bin is prepended to PATH if that directory exists.
   4. \$DIR/$RC_NAME is sourced if that file exists.
   5. \$PS1 is decorated if the spawned shell is interactive.
@@ -84,6 +86,9 @@ usage_exit () {
 
 # Parse command line arguments
 
+unset CREATE MANIFEST VERBOSE
+CLEAN_ENV="-c"
+
 while [ $# -ne 0 -a "$(expr "$1" : '\(.\).*')" = "-" ]; do
     case $1 in
     --dir=*)
@@ -92,6 +97,9 @@ while [ $# -ne 0 -a "$(expr "$1" : '\(.\).*')" = "-" ]; do
     -d|--dir)
         shift
         HOME_DIR="$1"
+        ;;
+    -e|--env)
+        unset CLEAN_ENV
         ;;
     -c|--create)
         CREATE=1
@@ -162,22 +170,26 @@ fi
 TARGET_BASH="$TARGET_PROFILE/bin/bash"
 [ -x "$TARGET_BASH" ] || err_exit "no bash found: $TARGET_BASH"
 
+# Create the bash RC-file
+
 TMP_RCFILE="/tmp/$(basename "$0").$$"
-grep '^export ' "$TARGET_PROFILE/etc/profile" | sed -e 's/^export  *\([^=]*\).*/unset \1/' > "$TMP_RCFILE"
+#grep '^export ' "$TARGET_PROFILE/etc/profile" | sed -e 's/^export  *\([^=]*\).*/unset \1/' > "$TMP_RCFILE"
 echo "export GUIX_PROFILE=\"$TARGET_PROFILE\"" >> "$TMP_RCFILE"
 cat "$TARGET_PROFILE/etc/profile" >> "$TMP_RCFILE"
 [ ! -d "$HOME_DIR/bin" ] || echo "PATH=\"$HOME_DIR/bin:\$PATH\"" >> "$TMP_RCFILE"
 [ ! -f "$HOME_DIR/$RC_NAME" ] || cat "$HOME_DIR/$RC_NAME" >> "$TMP_RCFILE"
+# Self destruct as final command.
+echo "rm -f '$TMP_RCFILE' || true" >> $TMP_RCFILE
 
 # Determine if shell will be interactive as mechanism to pass environment differs
 
 if [ $# -eq 0 ]; then
     # Interactive bash.  Pass rc-file via argument.
-    exec "$TARGET_BASH" --init-file "$TMP_RCFILE"
+    exec ${CLEAN_ENV:+-c} "$TARGET_BASH" --init-file "$TMP_RCFILE"
 else
-    # Non-interactive.  RC-file is passed via environment variable BASH_ENV.
-    export BASH_ENV="$TMP_RCFILE"
-    exec "$TARGET_BASH" -c "$*"
+    # Non-interactive, so we can't pass rc-file via init-file.
+    # Nor can we use BASH_ENV because we clean the env, so we source it.
+    exec ${CLEAN_ENV:+-c} "$TARGET_BASH" -c ". '$TMP_RCFILE' && $*"
 fi
 
 # vim: sts=4:sw=4:et:ai:si
