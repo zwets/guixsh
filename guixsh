@@ -39,11 +39,11 @@ usage_exit () {
   Run a shell or command in a Guix profile.
 
   OPTIONS
-    -d|--dir=DIR        Make DIR the home of the spawned shell.
-    -c|--create         Create a new Guix profile underneath DIR.
-    -m|--manifest=FILE  Use FILE to define the profile.
-    -h|--help           Present this help text.
-    -v|--verbose        Emit verbose output to stderr.
+    -d, --dir=DIR        Make DIR the home of the spawned shell
+    -c, --create         Create a new Guix profile underneath DIR
+    -m, --manifest=FILE  Use FILE to define the profile
+    -h, --help           Present this help text
+    -v, --verbose        Emit verbose output to stderr
 
   This command starts a bash shell with DIR/.guix-profile as its Guix
   profile.  The default for DIR is \$HOME.  If COMMAND is present then
@@ -56,15 +56,15 @@ usage_exit () {
   4. \$DIR/$RC_NAME is sourced if that file exists.
   5. \$PS1 is decorated if the spawned shell is interactive.
 
-  The directory \$DIR/.guix-profile must be present, or the option
-  -c|--create must be specified.  The option -m|--manifest may be used
-  both when creating a new profile and when using an existing profile.
-  It creates a new generation populated according to the manifest.
-  The manifest must install bash (or this command would be pointless).
+  The directory \$DIR/.guix-profile must be present, or option --create
+  must be specified.  Option --manifest may be used both when creating
+  a new profile and when using an existing profile.  It creates a new
+  generation populated according to the manifest.  The manifest must
+  install at least bash (or this command would be pointless).
 
-  When option -c|--create is present then no \$DIR/.guix-profile must
-  exist.  \$DIR is created if it does not exist.  \$DIR/bin is created
-  if it does not exist.  The script unguixsh is added to \$DIR/bin.
+  When option --create is present then: no \$DIR/.guix-profile must
+  exist; \$DIR is created if it does not exist; \$DIR/bin is created
+  if it does not exist.  @TODO:@ The script unguixsh is added to \$DIR/bin.
   If no manifest is specified, the created profile has guix and bash
   installed.
 
