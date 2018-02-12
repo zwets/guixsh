@@ -36,27 +36,28 @@ usage_exit () {
     echo "
   Usage: $(basename "$0") [OPTIONS] [--] [COMMAND]
 
-  Run a shell or command in a Guix profile.
+  Run a shell or COMMAND in a Guix profile.
 
   OPTIONS
-    -d, --dir=DIR        Make DIR the home of the spawned shell
-    -c, --create         Create a new Guix profile underneath DIR
-    -e, --env            Retain current environment in the spawnee
-    -m, --manifest=FILE  Use FILE to define the profile
-    -h, --help           Present this help text
-    -v, --verbose        Emit verbose output to stderr
+   -d, --dir=DIR        make DIR the home of the spawned shell
+   -c, --create         create a new Guix profile underneath DIR
+   -e, --env            retain current environment
+   -m, --manifest=FILE  use FILE to define the profile
+   -h, --help           present this help text
+   -v, --verbose        emit verbose output to stderr
 
   This command starts a bash shell with DIR/.guix-profile as its Guix
   profile.  The default for DIR is \$HOME.  If COMMAND is present then
   it is run in the shell, else the shell is interactive.
 
   The environment for the spawned shell is constructed as follows:
-  1. GUIX_PROFILE is set to \$DIR/.guix-profile.
+  1. GUIX_PROFILE is set to \$DIR/.guix-profile, default \$HOME/.guix-profile
   2. \$GUIX_PROFILE/etc/profile is sourced in an empty environment,
-     or in the current environment if option -e, --env is given.
+     or in the current environment if option --env is given.
   3. \$DIR/bin is prepended to PATH if that directory exists.
   4. \$DIR/$RC_NAME is sourced if that file exists.
-  5. \$PS1 is decorated if the spawned shell is interactive.
+  5. If \$GUIX_PROFILE/bin has no guix, then guix is aliased to system guix
+  6. \$PS1 is decorated if the spawned shell is interactive.
 
   The directory \$DIR/.guix-profile must be present, or option --create
   must be specified.  Option --manifest may be used both when creating
@@ -64,18 +65,17 @@ usage_exit () {
   generation populated according to the manifest.  The manifest must
   install at least bash (or this command would be pointless).
 
-  When option --create is present then: no \$DIR/.guix-profile must
-  exist; \$DIR is created if it does not exist; \$DIR/bin is created
-  if it does not exist.  @TODO:@ The script unguixsh is added to \$DIR/bin.
-  If no manifest is specified, the created profile has guix and bash
-  installed.
+  When option --create is present then: no \$DIR/.guix-profile must exist;
+  \$DIR is created unless it exists; \$DIR/bin is created unless it exists.
+  @TODO:@ The script unguixsh is added to \$DIR/bin.  If no manifest is
+  specified, the created profile has bash installed.
 
   Note that ~/.bashrc is not sourced by the spawned shell.  If desired
   this can be done from \$DIR/${RC_NAME}.  A sample ${RCNAME} which
   does this is provided in the guixsh repo.  Note that .bashrc should
   be sourced by interactive shells only.
 
-  Return value is the return value of the executed command.
+  Return value is the return value of COMMAND.
 " >&2
 
     exit ${1:-1}
@@ -153,16 +153,16 @@ fi
 emit "operating from GUIX_PROFILE: $GUIX_PROFILE"
 emit "target GUIX_PROFILE: $TARGET_PROFILE"
 
-# Install from manifest or, when creating, install just guix and bash
+# Install from manifest or, when creating, install just bash
 
 if [ -n "$MANIFEST" ]; then
     [ -f "$MANIFEST" ] || err_exit "no such file: $MANIFEST"
     emit "running guix manifest install in profile: $TARGET_PROFILE"
     guix package -p "$TARGET_PROFILE" -m "$MANIFEST" || 
         err_exit "guix failed to install manifest in profile: $TARGET_PROFILE"
-else # no manifest, install guix and bash when creating new
-    [ -z "$CREATE" ] || guix package -p "$TARGET_PROFILE" -i guix bash || 
-        err_exit "guix failed to install guix in created profile: $TARGET_PROFILE"
+else # no manifest, install bash when creating new
+    [ -z "$CREATE" ] || guix package -p "$TARGET_PROFILE" -i bash || 
+        err_exit "guix failed to install bash in created profile: $TARGET_PROFILE"
 fi
 
 # Prepare for environment setup
@@ -173,13 +173,15 @@ TARGET_BASH="$TARGET_PROFILE/bin/bash"
 # Create the bash RC-file
 
 TMP_RCFILE="/tmp/$(basename "$0").$$"
-#grep '^export ' "$TARGET_PROFILE/etc/profile" | sed -e 's/^export  *\([^=]*\).*/unset \1/' > "$TMP_RCFILE"
-echo "export GUIX_PROFILE=\"$TARGET_PROFILE\"" >> "$TMP_RCFILE"
-cat "$TARGET_PROFILE/etc/profile" >> "$TMP_RCFILE"
-[ ! -d "$HOME_DIR/bin" ] || echo "PATH=\"$HOME_DIR/bin:\$PATH\"" >> "$TMP_RCFILE"
-[ ! -f "$HOME_DIR/$RC_NAME" ] || cat "$HOME_DIR/$RC_NAME" >> "$TMP_RCFILE"
-# Self destruct as final command.
-echo "rm -f '$TMP_RCFILE' || true" >> $TMP_RCFILE
+{
+    printf 'export GUIX_PROFILE="%s"\n' "$TARGET_PROFILE"
+    printf '. "%s/etc/profile"\n' "$TARGET_PROFILE"
+    [ ! -d "$HOME_DIR/bin" ]          || printf 'PATH="%s/bin:$PATH"\n' "$HOME_DIR"
+    [ ! -f "$HOME_DIR/$RC_NAME" ]     || printf '. "%s/%s"\n' "$HOME_DIR" "$RC_NAME"
+    [ -x "$TARGET_PROFILE/bin/guix" ] || printf 'alias guix="%s"\n' "$(type -P guix)"
+    printf '# Self destruction in 3..2..1..\n'  # Yes, legal in Linux since the start
+    printf 'rm -f "%s" || true\n' "$TMP_RCFILE"
+} > "$TMP_RCFILE"
 
 # Determine if shell will be interactive as mechanism to pass environment differs
 
