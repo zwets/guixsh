@@ -21,7 +21,7 @@
 set -e
 
 RC_NAME=".guixshrc"
-HOME_DIR="$HOME"
+ROOT_DIR="$HOME"
 
 emit () {
     [ -z "$VERBOSE" ] || echo "$(basename "$0"): $*" >&2 
@@ -39,9 +39,9 @@ usage_exit () {
   Run a shell or COMMAND in a Guix profile.
 
   OPTIONS
-   -d, --dir=DIR        make DIR the home of the spawned shell
+   -d, --dir=DIR        use DIR as profile location (default \$HOME)
    -c, --create         create a new Guix profile underneath DIR
-   -e, --env            retain current environment
+   -e, --env            retain current shell environment
    -m, --manifest=FILE  use FILE to define the profile
    -h, --help           present this help text
    -v, --verbose        emit verbose output to stderr
@@ -51,10 +51,10 @@ usage_exit () {
   it is run in the shell, else the shell is interactive.
 
   The environment for the spawned shell is constructed as follows:
-  1. GUIX_PROFILE is set to \$DIR/.guix-profile, default \$HOME/.guix-profile
-  2. \$GUIX_PROFILE/etc/profile is sourced in an empty environment,
-     or in the current environment if option --env is given.
-  3. \$DIR/bin is prepended to PATH if that directory exists.
+  1. GUIX_PROFILE is set to \$DIR/.guix-profile (default \$HOME/.guix-profile)
+  2. \$GUIX_PROFILE/etc/profile is sourced in an empty environment, or in the
+     current environment if option --env is given
+  3. \$DIR/bin is prepended to PATH if it exists
   4. \$DIR/$RC_NAME is sourced if that file exists.
   5. If \$GUIX_PROFILE/bin has no guix, then guix is aliased to system guix
   6. \$PS1 is decorated if the spawned shell is interactive.
@@ -92,11 +92,11 @@ CLEAN_ENV="-c"
 while [ $# -ne 0 -a "$(expr "$1" : '\(.\).*')" = "-" ]; do
     case $1 in
     --dir=*)
-        HOME_DIR="${1#--dir=}"
+        ROOT_DIR="${1#--dir=}"
         ;;
     -d|--dir)
         shift
-        HOME_DIR="$1"
+        ROOT_DIR="$1"
         ;;
     -e|--env)
         unset CLEAN_ENV
@@ -130,23 +130,23 @@ done
 
 # Making paths absolute
 
-HOME_DIR="$(realpath "$HOME_DIR")"
-TARGET_PROFILE="$HOME_DIR/.guix-profile"
+ROOT_DIR="$(realpath "$ROOT_DIR")"
+TARGET_PROFILE="$ROOT_DIR/.guix-profile"
 
 # Consistency checks and setting up directories
 
 if [ -n "$CREATE" ]; then
     [ ! -e "$TARGET_PROFILE" ] || err_exit "refusing to create: file or directory exists: $TARGET_PROFILE"
-    if [ ! -d "$HOME_DIR" ]; then
-        [ ! -e "$HOME_DIR" ] || err_exit "cannot create directory: file exists: $HOME_DIR"
-        emit "creating directory: $HOME_DIR"
-        mkdir -p "$HOME_DIR"
+    if [ ! -d "$ROOT_DIR" ]; then
+        [ ! -e "$ROOT_DIR" ] || err_exit "cannot create directory: file exists: $ROOT_DIR"
+        emit "creating directory: $ROOT_DIR"
+        mkdir -p "$ROOT_DIR" || err_exit "failed to create directory: $ROOT_DIR"
     fi
-    emit "creating directory: $HOME_DIR/bin"
-    mkdir -p "$HOME_DIR/bin"
-    emit "@@@ TODO @@@: add unguixsh to $HOME_DIR/bin"
+    emit "creating directory: $ROOT_DIR/bin"
+    mkdir -p "$ROOT_DIR/bin" || err_exit "failed to create directory: $ROOT_DIR/bin"
+    emit "@@@ TODO @@@: add unguixsh to $ROOT_DIR/bin"
 else # not creating, check for presence of profile
-    [ -d "$HOME_DIR" ] || err_exit "no such directory: $HOME_DIR"
+    [ -d "$ROOT_DIR" ] || err_exit "no such directory: $ROOT_DIR"
     [ -e "$TARGET_PROFILE" ] || err_exit "no such file: $TARGET_PROFILE"
 fi
 
@@ -174,10 +174,11 @@ TARGET_BASH="$TARGET_PROFILE/bin/bash"
 
 TMP_RCFILE="/tmp/$(basename "$0").$$"
 {
+    printf 'export HOME="%s"\n' "$HOME"
     printf 'export GUIX_PROFILE="%s"\n' "$TARGET_PROFILE"
     printf '. "%s/etc/profile"\n' "$TARGET_PROFILE"
-    [ ! -d "$HOME_DIR/bin" ]          || printf 'PATH="%s/bin:$PATH"\n' "$HOME_DIR"
-    [ ! -f "$HOME_DIR/$RC_NAME" ]     || printf '. "%s/%s"\n' "$HOME_DIR" "$RC_NAME"
+    [ ! -d "$ROOT_DIR/bin" ]          || printf 'PATH="%s/bin:$PATH"\n' "$ROOT_DIR"
+    [ ! -f "$ROOT_DIR/$RC_NAME" ]     || printf '. "%s/%s"\n' "$ROOT_DIR" "$RC_NAME"
     [ -x "$TARGET_PROFILE/bin/guix" ] || printf 'alias guix="%s"\n' "$(type -P guix)"
     printf '# Self destruction in 3..2..1..\n'  # Yes, legal in Linux since the start
     printf 'rm -f "%s" || true\n' "$TMP_RCFILE"
