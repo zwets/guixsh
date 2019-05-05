@@ -56,7 +56,7 @@ usage_exit () {
      current environment if option --env is given
   3. \$DIR/bin is prepended to PATH if it exists
   4. \$DIR/$RC_NAME is sourced if that file exists.
-  5. If \$GUIX_PROFILE/bin has no guix, then guix is aliased to system guix
+  5. If \$GUIX_PROFILE/bin has no guix, then guix is aliased to outside guix
   6. \$PS1 is decorated if the spawned shell is interactive.
 
   The directory \$DIR/.guix-profile must be present, or option --create
@@ -182,7 +182,7 @@ TMP_RCFILE="/tmp/$(basename "$0").$$"
     [ ! -f "$ROOT_DIR/$RC_NAME" ]     || printf '. "%s/%s"\n' "$ROOT_DIR" "$RC_NAME"
     [ -x "$TARGET_PROFILE/bin/guix" ] || printf 'alias guix="%s"\n' "$(type -P guix)"
     printf '# Self destruction in 3..2..1..\n'  # Yes, legal in Linux since the start
-    printf 'rm -f "%s" || true\n' "$TMP_RCFILE"
+    printf '/bin/rm -f "%s" || true\n' "$TMP_RCFILE"
 } > "$TMP_RCFILE"
 
 # Determine if shell will be interactive as mechanism to pass environment differs
